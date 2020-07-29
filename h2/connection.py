@@ -1557,17 +1557,23 @@ class H2Connection(object):
         stream = self._get_or_create_stream(
             frame.stream_id, AllowedStreamIDs(not self.config.client_side)
         )
-        frames, stream_events = stream.receive_headers(
-            headers,
-            'END_STREAM' in frame.flags,
-            self.config.header_encoding
-        )
+        try:
+            frames, stream_events = stream.receive_headers(
+                headers,
+                'END_STREAM' in frame.flags,
+                self.config.header_encoding
+            )
 
-        if 'PRIORITY' in frame.flags:
-            p_frames, p_events = self._receive_priority_frame(frame)
-            stream_events[0].priority_updated = p_events[0]
-            stream_events.extend(p_events)
-            assert not p_frames
+            if 'PRIORITY' in frame.flags:
+                p_frames, p_events = self._receive_priority_frame(frame)
+                stream_events[0].priority_updated = p_events[0]
+                stream_events.extend(p_events)
+                assert not p_frames
+        except ProtocolError:
+            # At this point we are lost with a protocol error anyways,
+            # but we can avoid exposing stream ids that the user has never seen.
+            self.streams.pop(frame.stream_id)
+            raise
 
         return frames, events + stream_events
 

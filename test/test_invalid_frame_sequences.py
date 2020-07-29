@@ -364,6 +364,9 @@ class TestInvalidFrameSequences(object):
         with pytest.raises(h2.exceptions.ProtocolError):
             c.receive_data(f.serialize())
 
+        # check that there are no stream ids that were never exposed as part of an event.
+        assert not c.streams
+
         expected_frame = frame_factory.build_goaway_frame(
             last_stream_id=1,
             error_code=h2.errors.ErrorCodes.PROTOCOL_ERROR
